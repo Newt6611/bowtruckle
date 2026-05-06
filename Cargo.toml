@@ -2,6 +2,27 @@
 name = "bowtruckle"
 version = "0.1.0"
 edition = "2024"
+description = "Decode Cardano transaction CBOR into Markdown"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Newt6611/bowtruckle"
+homepage = "https://github.com/Newt6611/bowtruckle"
+documentation = "https://github.com/Newt6611/bowtruckle#readme"
+keywords = ["cardano", "cbor", "markdown", "cli", "blockchain"]
+categories = ["command-line-utilities", "encoding", "parser-implementations"]
+rust-version = "1.88"
+include = [
+    "Cargo.toml",
+    "Cargo.lock",
+    "README.md",
+    "logo.png",
+    "src/**/*.rs",
+    "tests/**/*.rs",
+]
+
+[[bin]]
+name = "bowtruckle"
+path = "src/main.rs"
 
 [dependencies]
 cardano-serialization-lib = "15.0.3"
