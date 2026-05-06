@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="Bowtruckle logo" width="180">
+  <img src="logo.png" alt="Bowtruckle logo" width="320">
 </p>
 
 # Bowtruckle
@@ -54,7 +54,7 @@ bowtruckle 84a700... --output tx.md
 ### Pipe Into Neovim
 
 ```bash
-bowtruckle 84a700... | nvim -
+bowtruckle 84a700... | nvim
 ```
 
 When developing locally with Cargo:
