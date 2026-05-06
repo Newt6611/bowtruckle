@@ -6,6 +6,15 @@ use std::{
 
 use bowtruckle::{markdown::render_json_markdown, parser::parse_transaction_json};
 
+const USAGE: &str = "Usage: bowtruckle <RAW_CBOR_HEX|CBOR_FILE> [OUTPUT|-o OUTPUT]\n\n\
+Renders Cardano transaction CBOR hex as Markdown.\n\n\
+Examples:\n  \
+bowtruckle 84a700...\n  \
+bowtruckle tx.cbor\n  \
+bowtruckle tx.cbor tx.md\n  \
+bowtruckle tx.cbor -o tx.md\n  \
+bowtruckle 84a700... | nvim -";
+
 #[derive(Debug, Default)]
 struct Args {
     cbor_hex: String,
@@ -14,13 +23,20 @@ struct Args {
 
 fn main() {
     if let Err(error) = run() {
-        eprintln!("error: {error}");
+        eprintln!("bowtruckle: {error}\n");
+        eprintln!("{USAGE}");
         std::process::exit(1);
     }
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let args = parse_args(env::args().skip(1))?;
+    let raw_args: Vec<String> = env::args().skip(1).collect();
+    if raw_args.is_empty() {
+        print_usage();
+        return Ok(());
+    }
+
+    let args = parse_args(raw_args)?;
     let cbor_hex = read_cbor_argument(&args.cbor_hex)?;
     let transaction = parse_transaction_json(cbor_hex.trim())?;
     let markdown = render_json_markdown(&transaction);
@@ -86,16 +102,7 @@ fn read_cbor_argument(value: &str) -> Result<String, Box<dyn std::error::Error>>
 }
 
 fn print_usage() {
-    println!(
-        "Usage: bowtruckle <RAW_CBOR_HEX|CBOR_FILE> [-o OUTPUT]\n\n\
-         Renders Cardano transaction CBOR hex as markdown.\n\n\
-         Examples:\n  \
-         bowtruckle 84a700... > tx.md\n  \
-         bowtruckle tx.cbor > tx.md\n  \
-         bowtruckle tx.cbor tx.md\n  \
-         bowtruckle 84a700... | nvim -\n  \
-         bowtruckle 84a700... -o tx.md"
-    );
+    println!("{USAGE}");
 }
 
 #[cfg(test)]
@@ -139,5 +146,12 @@ mod tests {
 
         assert_eq!(args.cbor_hex, "cc");
         assert_eq!(args.output, Some("tx11.md".into()));
+    }
+
+    #[test]
+    fn empty_args_still_report_missing_cbor_to_parser() {
+        let error = parse_args(Vec::<String>::new()).expect_err("args should fail");
+
+        assert_eq!(error, "missing raw CBOR hex argument");
     }
 }

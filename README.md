@@ -21,10 +21,16 @@ pipe it into Neovim, or save it as a Markdown file.
 - Decodes native asset names from asset-name hex when they are valid UTF-8,
   while preserving the original hex.
 
+## Install
+
+```bash
+cargo install bowtruckle
+```
+
 ## Usage
 
 ```bash
-bowtruckle <RAW_CBOR_HEX|CBOR_FILE> [-o OUTPUT]
+bowtruckle <RAW_CBOR_HEX|CBOR_FILE> [OUTPUT|-o OUTPUT]
 ```
 
 ### Print Markdown To The Terminal
@@ -54,7 +60,7 @@ bowtruckle 84a700... --output tx.md
 ### Pipe Into Neovim
 
 ```bash
-bowtruckle 84a700... | nvim
+bowtruckle 84a700... | nvim -
 ```
 
 When developing locally with Cargo:
