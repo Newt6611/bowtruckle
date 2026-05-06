@@ -5,15 +5,7 @@ use std::{
 };
 
 use bowtruckle::{markdown::render_json_markdown, parser::parse_transaction_json};
-
-const USAGE: &str = "Usage: bowtruckle <RAW_CBOR_HEX|CBOR_FILE> [OUTPUT|-o OUTPUT]\n\n\
-Renders Cardano transaction CBOR hex as Markdown.\n\n\
-Examples:\n  \
-bowtruckle 84a700...\n  \
-bowtruckle tx.cbor\n  \
-bowtruckle tx.cbor tx.md\n  \
-bowtruckle tx.cbor -o tx.md\n  \
-bowtruckle 84a700... | nvim -";
+use clap::{CommandFactory, Parser, error::ErrorKind};
 
 #[derive(Debug, Default)]
 struct Args {
@@ -21,10 +13,32 @@ struct Args {
     output: Option<PathBuf>,
 }
 
+#[derive(Debug, Parser)]
+#[command(
+    name = "bowtruckle",
+    version,
+    about = "Decode Cardano transaction CBOR into Markdown",
+    after_help = "Examples:
+  bowtruckle 84a700...
+  bowtruckle tx.cbor
+  bowtruckle tx.cbor tx.md
+  bowtruckle tx.cbor -o tx.md
+  bowtruckle 84a700... | nvim -"
+)]
+struct Cli {
+    #[arg(value_name = "RAW_CBOR_HEX|CBOR_FILE")]
+    cbor_hex: String,
+
+    #[arg(value_name = "OUTPUT")]
+    positional_output: Option<PathBuf>,
+
+    #[arg(short = 'o', long = "output", value_name = "OUTPUT")]
+    output: Option<PathBuf>,
+}
+
 fn main() {
     if let Err(error) = run() {
-        eprintln!("bowtruckle: {error}\n");
-        eprintln!("{USAGE}");
+        eprintln!("bowtruckle: {error}");
         std::process::exit(1);
     }
 }
@@ -49,47 +63,43 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
-    let mut parsed = Args::default();
-    let mut args = args.into_iter();
-
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "-h" | "--help" => {
-                print_usage();
-                std::process::exit(0);
-            }
-            "." if parsed.cbor_hex.is_empty() => {}
-            "-o" | "--output" => {
-                parsed.output = Some(next_path(&mut args, &arg)?);
-            }
-            value if value.starts_with('-') => {
-                return Err(format!("unknown option `{value}`"));
-            }
-            value => {
-                if !parsed.cbor_hex.is_empty() {
-                    if parsed.output.is_some() {
-                        return Err("multiple output paths provided".to_string());
-                    }
-                    parsed.output = Some(PathBuf::from(value));
-                    continue;
-                }
-                parsed.cbor_hex = value.to_string();
-            }
+fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, Box<dyn std::error::Error>> {
+    let args = normalize_args(args);
+    let cli = match Cli::try_parse_from(std::iter::once("bowtruckle".to_string()).chain(args)) {
+        Ok(cli) => cli,
+        Err(error)
+            if matches!(
+                error.kind(),
+                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
+            ) =>
+        {
+            error.print()?;
+            std::process::exit(0);
         }
+        Err(error) => return Err(error.into()),
+    };
+
+    if cli.positional_output.is_some() && cli.output.is_some() {
+        return Err("provide either positional OUTPUT or --output, not both".into());
     }
 
-    if parsed.cbor_hex.is_empty() {
-        return Err("missing raw CBOR hex argument".to_string());
-    }
-
-    Ok(parsed)
+    Ok(Args {
+        cbor_hex: cli.cbor_hex,
+        output: cli.output.or(cli.positional_output),
+    })
 }
 
-fn next_path(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<PathBuf, String> {
-    args.next()
-        .map(PathBuf::from)
-        .ok_or_else(|| format!("missing path after `{flag}`"))
+fn normalize_args(args: impl IntoIterator<Item = String>) -> Vec<String> {
+    args.into_iter()
+        .enumerate()
+        .filter_map(|(index, arg)| {
+            if index == 0 && arg == "." {
+                None
+            } else {
+                Some(arg)
+            }
+        })
+        .collect()
 }
 
 fn read_cbor_argument(value: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -102,14 +112,16 @@ fn read_cbor_argument(value: &str) -> Result<String, Box<dyn std::error::Error>>
 }
 
 fn print_usage() {
-    println!("{USAGE}");
+    Cli::command().print_help().expect("help should print");
+    println!();
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs;
 
-    use super::{parse_args, read_cbor_argument};
+    use super::{Cli, parse_args, read_cbor_argument};
+    use clap::{CommandFactory, Parser};
 
     #[test]
     fn accepts_raw_cbor_argument() {
@@ -152,6 +164,21 @@ mod tests {
     fn empty_args_still_report_missing_cbor_to_parser() {
         let error = parse_args(Vec::<String>::new()).expect_err("args should fail");
 
-        assert_eq!(error, "missing raw CBOR hex argument");
+        assert!(error.to_string().contains("required"));
+    }
+
+    #[test]
+    fn supports_version_flag() {
+        let error = Cli::try_parse_from(["bowtruckle", "--version"]).expect_err("version exits");
+
+        assert!(error.to_string().contains(env!("CARGO_PKG_VERSION")));
+    }
+
+    #[test]
+    fn help_includes_examples() {
+        let help = Cli::command().render_help().to_string();
+
+        assert!(help.contains("Examples:"));
+        assert!(help.contains("bowtruckle tx.cbor -o tx.md"));
     }
 }
