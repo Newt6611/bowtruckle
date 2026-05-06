@@ -128,9 +128,3 @@ target/release/bowtruckle
 ```bash
 cargo test
 ```
-
-## Notes
-
-Inputs in a Cardano transaction only contain a referenced transaction id and
-output index. They do not contain the spent address or value. Resolving those
-requires external UTxO data, which Bowtruckle does not fetch.

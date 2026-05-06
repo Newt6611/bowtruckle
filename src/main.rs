@@ -52,7 +52,11 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
             }
             value => {
                 if !parsed.cbor_hex.is_empty() {
-                    return Err("multiple CBOR hex values provided".to_string());
+                    if parsed.output.is_some() {
+                        return Err("multiple output paths provided".to_string());
+                    }
+                    parsed.output = Some(PathBuf::from(value));
+                    continue;
                 }
                 parsed.cbor_hex = value.to_string();
             }
@@ -88,6 +92,7 @@ fn print_usage() {
          Examples:\n  \
          bowtruckle 84a700... > tx.md\n  \
          bowtruckle tx.cbor > tx.md\n  \
+         bowtruckle tx.cbor tx.md\n  \
          bowtruckle 84a700... | nvim -\n  \
          bowtruckle 84a700... -o tx.md"
     );
@@ -125,5 +130,14 @@ mod tests {
 
         assert_eq!(cbor, "84a700\n");
         fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn accepts_positional_output_path() {
+        let args =
+            parse_args(["cc".to_string(), "tx11.md".to_string()]).expect("args should parse");
+
+        assert_eq!(args.cbor_hex, "cc");
+        assert_eq!(args.output, Some("tx11.md".into()));
     }
 }
